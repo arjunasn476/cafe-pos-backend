@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MANAGER
+  CASHIER
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  email        String   @unique
+  password     String
+  role         Role     @default(CUSTOMER)
+  fullName     String
+  phoneNumber  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orders       Order[]
+
+  @@map("users")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  menus       Menu[]
+
+  @@map("categories")
+}
+
+model Menu {
+  id            Int      @id @default(autoincrement())
+  name          String   @unique
+  description   String?
+  price         Decimal  @db.Decimal(10, 2)
+  stock         Int      @default(0)
+  imageUrl      String?
+  categoryId    Int
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category      Category @relation(fields: [categoryId], references: [id])
+  orderDetails  OrderDetail[]
+
+  @@map("menus")
+}
+
+model Order {
+  id                 Int           @id @default(autoincrement())
+  orderNumber        String        @unique
+  userId             Int
+  totalPrice         Decimal       @db.Decimal(10, 2)
+  status             OrderStatus   @default(PENDING)
+  paymentMethod      String?
+  isPaid             Boolean       @default(false)
+  notes              String?
+  cancellationReason String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  orderDetails OrderDetail[]
+
+  @@map("orders")
+}
+
+model OrderDetail {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  menuId      Int
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  subtotal    Decimal  @db.Decimal(10, 2)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+  menu  Menu  @relation(fields: [menuId], references: [id])
+
+  @@map("order_details")
+}
