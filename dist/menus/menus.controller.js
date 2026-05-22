@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MenusController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const menus_service_1 = require("./menus.service");
 const create_menu_dto_1 = require("./dto/create-menu.dto");
 const update_menu_dto_1 = require("./dto/update-menu.dto");
@@ -46,6 +47,10 @@ __decorate([
     (0, common_1.Post)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('MANAGER'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Buat menu baru (MANAGER only)' }),
+    (0, swagger_1.ApiBody)({ type: create_menu_dto_1.CreateMenuDto }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Menu berhasil dibuat' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_menu_dto_1.CreateMenuDto]),
@@ -54,6 +59,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Lihat semua menu' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Daftar menu' }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
@@ -61,6 +69,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Lihat detail menu' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Detail menu' }),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Number]),
@@ -70,6 +81,10 @@ __decorate([
     (0, common_1.Put)(':id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('MANAGER'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update menu (MANAGER only)' }),
+    (0, swagger_1.ApiBody)({ type: update_menu_dto_1.UpdateMenuDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Menu berhasil diupdate' }),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -80,12 +95,16 @@ __decorate([
     (0, common_1.Delete)(':id'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('MANAGER'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Hapus menu (MANAGER only)' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Menu berhasil dihapus' }),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Number]),
     __metadata("design:returntype", void 0)
 ], MenusController.prototype, "delete", null);
 exports.MenusController = MenusController = __decorate([
+    (0, swagger_1.ApiTags)('Menus'),
     (0, common_1.Controller)('menus'),
     __metadata("design:paramtypes", [menus_service_1.MenusService])
 ], MenusController);
