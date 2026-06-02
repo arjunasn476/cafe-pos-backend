@@ -22,6 +22,10 @@ let OrdersService = class OrdersService {
         if (!dto.items || dto.items.length === 0) {
             throw new common_1.BadRequestException('Minimal harus ada 1 item pesanan');
         }
+        // ✅ BARU: Validasi paymentMethod
+        if (!dto.paymentMethod) {
+            throw new common_1.BadRequestException('Metode pembayaran harus dipilih');
+        }
         // Tentukan siapa yang dipesan
         let actualUserId = userId;
         // Kalau kasir input userId, gunakan itu (untuk order atas nama customer lain)
@@ -87,6 +91,14 @@ let OrdersService = class OrdersService {
             ? parseInt(lastOrder.orderNumber.split('-')[2]) + 1
             : 1;
         const orderNumber = `ORD-${today}-${String(sequence).padStart(5, '0')}`;
+        // ✅ BARU: Logic isPaid berdasarkan paymentMethod
+        const isPaidMap = {
+            CASH: false,
+            QRIS: true,
+            EWALLETQ: true,
+            BANK_TRANSFER: true,
+        };
+        const isPaid = isPaidMap[dto.paymentMethod] ?? false;
         // Create order dengan transaction
         const order = await this.prisma.order.create({
             data: {
@@ -94,6 +106,8 @@ let OrdersService = class OrdersService {
                 userId: actualUserId,
                 totalPrice,
                 status: 'PENDING',
+                paymentMethod: dto.paymentMethod,
+                isPaid: isPaid,
                 orderDetails: {
                     create: orderDetails,
                 },

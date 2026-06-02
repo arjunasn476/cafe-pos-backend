@@ -18,6 +18,11 @@ export class OrdersService {
       throw new BadRequestException('Minimal harus ada 1 item pesanan');
     }
 
+    // ✅ BARU: Validasi paymentMethod
+    if (!dto.paymentMethod) {
+      throw new BadRequestException('Metode pembayaran harus dipilih');
+    }
+
     // Tentukan siapa yang dipesan
     let actualUserId = userId;
     
@@ -105,6 +110,15 @@ export class OrdersService {
       : 1;
     const orderNumber = `ORD-${today}-${String(sequence).padStart(5, '0')}`;
 
+    // ✅ BARU: Logic isPaid berdasarkan paymentMethod
+    const isPaidMap = {
+      CASH: false,
+      QRIS: true,
+      EWALLETQ: true,
+      BANK_TRANSFER: true,
+    };
+    const isPaid = isPaidMap[dto.paymentMethod] ?? false;
+
     // Create order dengan transaction
     const order = await this.prisma.order.create({
       data: {
@@ -112,6 +126,8 @@ export class OrdersService {
         userId: actualUserId,
         totalPrice,
         status: 'PENDING',
+        paymentMethod: dto.paymentMethod,
+        isPaid: isPaid,
         orderDetails: {
           create: orderDetails,
         },

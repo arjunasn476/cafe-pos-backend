@@ -1,4 +1,4 @@
-import { IsArray, IsNotEmpty, IsInt, Min, IsOptional } from 'class-validator';
+import { IsArray, IsNotEmpty, IsInt, Min, IsOptional, IsEnum } from 'class-validator';
 
 export class CreateOrderItemDto {
   @IsInt()
@@ -11,6 +11,13 @@ export class CreateOrderItemDto {
   quantity: number;
 }
 
+export enum PaymentMethodEnum {
+  CASH = 'CASH',
+  QRIS = 'QRIS',
+  EWALLETQ = 'EWALLETQ',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+}
+
 export class CreateOrderDto {
   @IsArray()
   @IsNotEmpty()
@@ -18,5 +25,9 @@ export class CreateOrderDto {
 
   @IsInt()
   @IsOptional()
-  userId?: number; // Hanya untuk kasir input order untuk customer
+  userId?: number;
+
+  @IsEnum(PaymentMethodEnum)
+  @IsNotEmpty()
+  paymentMethod: PaymentMethodEnum;
 }
