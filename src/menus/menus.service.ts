@@ -83,6 +83,7 @@ export class MenusService {
         stock: dto.stock,
         categoryId: dto.categoryId,
         isAvailable: true,
+        imageUrl: dto.imageUrl, // Menambahkan imageUrl saat create
       },
       include: {
         category: {
@@ -94,7 +95,8 @@ export class MenusService {
       },
     });
 
-    const { description, imageUrl, ...menuData } = menu;
+    // Hanya menghapus description dari response, imageUrl tetap dipertahankan
+    const { description, ...menuData } = menu;
     return {
       statusCode: 201,
       message: 'Menu berhasil dibuat',
@@ -126,9 +128,9 @@ export class MenusService {
       };
     }
 
-    // Remove description dan imageUrl dari setiap menu
+    // Hanya menghapus description, imageUrl tetap ada
     const cleanMenus = menus.map(menu => {
-      const { description, imageUrl, ...rest } = menu;
+      const { description, ...rest } = menu;
       return rest;
     });
 
@@ -163,7 +165,8 @@ export class MenusService {
       throw new NotFoundException(`Menu dengan ID ${id} tidak ditemukan`);
     }
 
-    const { description, imageUrl, ...menuData } = menu;
+    // Hanya menghapus description, imageUrl tetap ada
+    const { description, ...menuData } = menu;
     return {
       statusCode: 200,
       message: 'Data menu berhasil diambil',
@@ -264,6 +267,7 @@ export class MenusService {
         stock: dto.stock !== undefined ? dto.stock : undefined,
         categoryId: dto.categoryId || undefined,
         isAvailable: dto.isAvailable !== undefined ? dto.isAvailable : undefined,
+        imageUrl: dto.imageUrl !== undefined ? dto.imageUrl : undefined, // Menambahkan imageUrl saat update
       },
       include: {
         category: {
@@ -275,7 +279,8 @@ export class MenusService {
       },
     });
 
-    const { description, imageUrl, ...menuData } = updatedMenu;
+    // Hanya menghapus description, imageUrl tetap ada
+    const { description, ...menuData } = updatedMenu;
     return {
       statusCode: 200,
       message: 'Menu berhasil diubah',
