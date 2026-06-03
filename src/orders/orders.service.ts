@@ -13,29 +13,23 @@ export class OrdersService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateOrderDto, userId: number, userRole: string) {
-    // Validasi: items tidak boleh kosong
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('Minimal harus ada 1 item pesanan');
     }
 
-    // ✅ BARU: Validasi paymentMethod
     if (!dto.paymentMethod) {
       throw new BadRequestException('Metode pembayaran harus dipilih');
     }
 
-    // Tentukan siapa yang dipesan
     let actualUserId = userId;
     
-    // Kalau kasir input userId, gunakan itu (untuk order atas nama customer lain)
     if (dto.userId) {
-      // Hanya CASHIER dan MANAGER bisa input userId
       if (userRole !== 'CASHIER' && userRole !== 'MANAGER') {
         throw new ForbiddenException(
           'Hanya kasir atau manager yang bisa membuat order untuk customer lain'
         );
       }
       
-      // Cek customer exists
       const customer = await this.prisma.user.findUnique({
         where: { id: dto.userId },
       });
@@ -49,7 +43,6 @@ export class OrdersService {
       actualUserId = dto.userId;
     }
 
-    // Validasi dan ambil menu data
     const menuIds = dto.items.map(item => item.menuId);
     const menus = await this.prisma.menu.findMany({
       where: { id: { in: menuIds } },
@@ -59,7 +52,6 @@ export class OrdersService {
       throw new BadRequestException('Beberapa menu tidak ditemukan');
     }
 
-    // Validasi stock dan prepare order details
     const orderDetails = [];
     let totalPrice = 0;
 
@@ -91,7 +83,6 @@ export class OrdersService {
       });
     }
 
-    // Generate order number: ORD-YYYYMMDD-XXXXX
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const lastOrder = await this.prisma.order.findFirst({
       where: {
@@ -110,7 +101,6 @@ export class OrdersService {
       : 1;
     const orderNumber = `ORD-${today}-${String(sequence).padStart(5, '0')}`;
 
-    // ✅ BARU: Logic isPaid berdasarkan paymentMethod
     const isPaidMap = {
       CASH: false,
       QRIS: true,
@@ -119,7 +109,6 @@ export class OrdersService {
     };
     const isPaid = isPaidMap[dto.paymentMethod] ?? false;
 
-    // Create order dengan transaction
     const order = await this.prisma.order.create({
       data: {
         orderNumber,
@@ -145,6 +134,8 @@ export class OrdersService {
               select: {
                 id: true,
                 name: true,
+                price: true,
+                imageUrl: true,
               },
             },
           },
@@ -152,7 +143,6 @@ export class OrdersService {
       },
     });
 
-    // Deduct stock
     for (const item of dto.items) {
       await this.prisma.menu.update({
         where: { id: item.menuId },
@@ -175,7 +165,6 @@ export class OrdersService {
     let orders;
 
     if (userRole === 'CUSTOMER') {
-      // Customer hanya lihat order sendiri
       orders = await this.prisma.order.findMany({
         where: { userId },
         include: {
@@ -192,6 +181,7 @@ export class OrdersService {
                   id: true,
                   name: true,
                   price: true,
+                  imageUrl: true,
                 },
               },
             },
@@ -202,7 +192,6 @@ export class OrdersService {
         },
       });
     } else {
-      // CASHIER dan MANAGER lihat semua
       orders = await this.prisma.order.findMany({
         include: {
           user: {
@@ -218,6 +207,7 @@ export class OrdersService {
                   id: true,
                   name: true,
                   price: true,
+                  imageUrl: true,
                 },
               },
             },
@@ -266,6 +256,7 @@ export class OrdersService {
                 id: true,
                 name: true,
                 price: true,
+                imageUrl: true,
               },
             },
           },
@@ -277,7 +268,6 @@ export class OrdersService {
       throw new NotFoundException(`Pesanan dengan ID ${id} tidak ditemukan`);
     }
 
-    // CUSTOMER hanya bisa lihat pesanan sendiri
     if (userRole === 'CUSTOMER' && order.userId !== userId) {
       throw new ForbiddenException(
         'Anda tidak memiliki akses ke pesanan ini'
@@ -301,7 +291,6 @@ export class OrdersService {
       throw new BadRequestException('ID pesanan tidak valid');
     }
 
-    // CUSTOMER tidak bisa update status
     if (userRole === 'CUSTOMER') {
       throw new ForbiddenException(
         'Anda tidak memiliki akses untuk update status pesanan'
@@ -323,7 +312,6 @@ export class OrdersService {
       throw new NotFoundException(`Pesanan dengan ID ${id} tidak ditemukan`);
     }
 
-    // Validasi: kalau mau CANCELLED, restore stock
     if (dto.status === 'CANCELLED' && order.status !== 'CANCELLED') {
       for (const detail of order.orderDetails) {
         await this.prisma.menu.update({
@@ -356,6 +344,7 @@ export class OrdersService {
                 id: true,
                 name: true,
                 price: true,
+                imageUrl: true,
               },
             },
           },
