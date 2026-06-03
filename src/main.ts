@@ -32,7 +32,7 @@ async function bootstrap() {
 
   // --- 3. Penyesuaian Port untuk Railway ---
   // Railway pakai port dinamis, kalau dipaksa 3000 terus, dia bisa error.
-  await app.listen(process.env.PORT ?? 3000); 
+  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
   
   console.log(`Application is running on: ${await app.getUrl()}`);
 }
