@@ -82,20 +82,22 @@ let OrdersService = class OrdersService {
             ? parseInt(lastOrder.orderNumber.split('-')[2]) + 1
             : 1;
         const orderNumber = `ORD-${today}-${String(sequence).padStart(5, '0')}`;
+        // PERBAIKAN: Memastikan paymentMethod selalu kapital biar Prisma tidak crash
+        const safePaymentMethod = dto.paymentMethod.toUpperCase();
         const isPaidMap = {
             CASH: false,
             QRIS: true,
             EWALLETQ: true,
             BANK_TRANSFER: true,
         };
-        const isPaid = isPaidMap[dto.paymentMethod] ?? false;
+        const isPaid = isPaidMap[safePaymentMethod] ?? false;
         const order = await this.prisma.order.create({
             data: {
                 orderNumber,
                 userId: actualUserId,
                 totalPrice,
                 status: 'PENDING',
-                paymentMethod: dto.paymentMethod,
+                paymentMethod: safePaymentMethod,
                 isPaid: isPaid,
                 orderDetails: {
                     create: orderDetails,
