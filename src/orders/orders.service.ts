@@ -13,155 +13,177 @@ export class OrdersService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateOrderDto, userId: number, userRole: string) {
-    if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('Minimal harus ada 1 item pesanan');
-    }
-
-    if (!dto.paymentMethod) {
-      throw new BadRequestException('Metode pembayaran harus dipilih');
-    }
-
-    let actualUserId = userId;
-    
-    if (dto.userId) {
-      if (userRole !== 'CASHIER' && userRole !== 'MANAGER') {
-        throw new ForbiddenException(
-          'Hanya kasir atau manager yang bisa membuat order untuk customer lain'
-        );
+    try {
+      if (!dto.items || dto.items.length === 0) {
+        throw new BadRequestException('Minimal harus ada 1 item pesanan');
       }
-      
-      const customer = await this.prisma.user.findUnique({
-        where: { id: dto.userId },
+
+      if (!dto.paymentMethod) {
+        throw new BadRequestException('Metode pembayaran harus dipilih');
+      }
+
+      let actualUserId = userId;
+
+      if (dto.userId) {
+        if (userRole !== 'CASHIER' && userRole !== 'MANAGER') {
+          throw new ForbiddenException(
+            'Hanya kasir atau manager yang bisa membuat order untuk customer lain'
+          );
+        }
+
+        const customer = await this.prisma.user.findUnique({
+          where: { id: dto.userId },
+        });
+
+        if (!customer) {
+          throw new NotFoundException(
+            `Customer dengan ID ${dto.userId} tidak ditemukan`
+          );
+        }
+
+        actualUserId = dto.userId;
+      }
+
+      const menuIds = dto.items.map(item => item.menuId);
+
+      const menus = await this.prisma.menu.findMany({
+        where: { id: { in: menuIds } },
       });
-      
-      if (!customer) {
-        throw new NotFoundException(
-          `Customer dengan ID ${dto.userId} tidak ditemukan`
-        );
-      }
-      
-      actualUserId = dto.userId;
-    }
 
-    const menuIds = dto.items.map(item => item.menuId);
-    const menus = await this.prisma.menu.findMany({
-      where: { id: { in: menuIds } },
-    });
+      console.log('MENU IDS:', menuIds);
+      console.log('FOUND MENUS:', menus);
 
-    if (menus.length !== menuIds.length) {
-      throw new BadRequestException('Beberapa menu tidak ditemukan');
-    }
-
-    const orderDetails = [];
-    let totalPrice = 0;
-
-    for (const item of dto.items) {
-      const menu = menus.find(m => m.id === item.menuId);
-
-      if (!menu) {
-        throw new BadRequestException(`Menu ID ${item.menuId} tidak ditemukan`);
+      if (menus.length !== menuIds.length) {
+        throw new BadRequestException('Beberapa menu tidak ditemukan');
       }
 
-      if (!menu.isAvailable) {
-        throw new BadRequestException(`Menu "${menu.name}" tidak tersedia`);
+      const orderDetails = [];
+      let totalPrice = 0;
+
+      for (const item of dto.items) {
+        const menu = menus.find(m => m.id === item.menuId);
+
+        if (!menu) {
+          throw new BadRequestException(
+            `Menu ID ${item.menuId} tidak ditemukan`
+          );
+        }
+
+        if (!menu.isAvailable) {
+          throw new BadRequestException(
+            `Menu "${menu.name}" tidak tersedia`
+          );
+        }
+
+        if (menu.stock < item.quantity) {
+          throw new BadRequestException(
+            `Stok "${menu.name}" tidak mencukupi. Tersedia: ${menu.stock}`
+          );
+        }
+
+        const subtotal = Number(menu.price) * item.quantity;
+        totalPrice += subtotal;
+
+        orderDetails.push({
+          menuId: item.menuId,
+          quantity: item.quantity,
+          unitPrice: menu.price,
+          subtotal: subtotal,
+        });
       }
 
-      if (menu.stock < item.quantity) {
-        throw new BadRequestException(
-          `Stok "${menu.name}" tidak mencukupi. Tersedia: ${menu.stock}`
-        );
-      }
+      const today = new Date()
+        .toISOString()
+        .slice(0, 10)
+        .replace(/-/g, '');
 
-      const subtotal = Number(menu.price) * item.quantity;
-      totalPrice += subtotal;
-
-      orderDetails.push({
-        menuId: item.menuId,
-        quantity: item.quantity,
-        unitPrice: menu.price,
-        subtotal: subtotal,
-      });
-    }
-
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const lastOrder = await this.prisma.order.findFirst({
-      where: {
-        orderNumber: {
-          startsWith: `ORD-${today}`,
-        },
-      },
-      orderBy: {
-        id: 'desc',
-      },
-      take: 1,
-    });
-
-    const sequence = lastOrder
-      ? parseInt(lastOrder.orderNumber.split('-')[2]) + 1
-      : 1;
-    const orderNumber = `ORD-${today}-${String(sequence).padStart(5, '0')}`;
-
-    // PERBAIKAN: Memastikan paymentMethod selalu kapital biar Prisma tidak crash
-    const safePaymentMethod = dto.paymentMethod.toUpperCase() as any;
-
-    const isPaidMap = {
-      CASH: false,
-      QRIS: true,
-      EWALLETQ: true,
-      BANK_TRANSFER: true,
-    };
-    const isPaid = isPaidMap[safePaymentMethod] ?? false;
-
-    const order = await this.prisma.order.create({
-      data: {
-        orderNumber,
-        userId: actualUserId,
-        totalPrice,
-        status: 'PENDING',
-        paymentMethod: safePaymentMethod,
-        isPaid: isPaid,
-        orderDetails: {
-          create: orderDetails,
-        },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
+      const lastOrder = await this.prisma.order.findFirst({
+        where: {
+          orderNumber: {
+            startsWith: `ORD-${today}`,
           },
         },
-        orderDetails: {
-          include: {
-            menu: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                imageUrl: true,
+        orderBy: {
+          id: 'desc',
+        },
+        take: 1,
+      });
+
+      const sequence = lastOrder
+        ? parseInt(lastOrder.orderNumber.split('-')[2]) + 1
+        : 1;
+
+      const orderNumber = `ORD-${today}-${String(sequence).padStart(5, '0')}`;
+
+      const safePaymentMethod = dto.paymentMethod.toUpperCase() as any;
+
+      // FIX TYPO DI SINI
+      const isPaidMap = {
+        CASH: false,
+        QRIS: true,
+        EWALLET: true,
+        BANK_TRANSFER: true,
+      };
+
+      const isPaid = isPaidMap[safePaymentMethod] ?? false;
+
+      console.log('PAYMENT METHOD:', safePaymentMethod);
+      console.log('IS PAID:', isPaid);
+
+      const order = await this.prisma.order.create({
+        data: {
+          orderNumber,
+          userId: actualUserId,
+          totalPrice,
+          status: 'PENDING',
+          paymentMethod: safePaymentMethod,
+          isPaid: isPaid,
+          orderDetails: {
+            create: orderDetails,
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+            },
+          },
+          orderDetails: {
+            include: {
+              menu: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  imageUrl: true,
+                },
               },
             },
           },
         },
-      },
-    });
-
-    for (const item of dto.items) {
-      await this.prisma.menu.update({
-        where: { id: item.menuId },
-        data: {
-          stock: {
-            decrement: item.quantity,
-          },
-        },
       });
-    }
 
-    return {
-      statusCode: 201,
-      message: 'Order berhasil dibuat',
-      data: order,
-    };
+      for (const item of dto.items) {
+        await this.prisma.menu.update({
+          where: { id: item.menuId },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
+
+      return {
+        statusCode: 201,
+        message: 'Order berhasil dibuat',
+        data: order,
+      };
+    } catch (error) {
+      console.error('ORDER CREATE ERROR:', error);
+      throw error;
+    }
   }
 
   async findAll(userId: number, userRole: string) {
@@ -268,7 +290,9 @@ export class OrdersService {
     });
 
     if (!order) {
-      throw new NotFoundException(`Pesanan dengan ID ${id} tidak ditemukan`);
+      throw new NotFoundException(
+        `Pesanan dengan ID ${id} tidak ditemukan`
+      );
     }
 
     if (userRole === 'CUSTOMER' && order.userId !== userId) {
@@ -312,7 +336,9 @@ export class OrdersService {
     });
 
     if (!order) {
-      throw new NotFoundException(`Pesanan dengan ID ${id} tidak ditemukan`);
+      throw new NotFoundException(
+        `Pesanan dengan ID ${id} tidak ditemukan`
+      );
     }
 
     if (dto.status === 'CANCELLED' && order.status !== 'CANCELLED') {
