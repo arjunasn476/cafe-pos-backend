@@ -22,7 +22,7 @@ enum OrderStatus {
 enum PaymentMethod {
   CASH
   QRIS
-  EWALLETQ
+  EWALLET
   BANK_TRANSFER
 }
 
